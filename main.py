@@ -1,4 +1,5 @@
 #%%
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -37,7 +38,9 @@ optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 data_iter = iter(loaders_dict['val'])
 data = data_iter.next()
 
-utils.imshow(torchvision.utils.make_grid(images, nrow=1))
+utils.imshow(torchvision.utils.make_grid(data['image'], nrow=1))
+
+utils.imshow(np.vstack(data['segmentation'].numpy()), cmap='binary')
 
 
 #%%

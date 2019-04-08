@@ -37,7 +37,8 @@ class DigitsDataset(Dataset):
         label_string, _, _ = img_path.name.partition('_')
         digits = np.array([int(digit) for digit in label_string])
         instruction = digits[instruction_idx]
-        target = digits[instruction_idx+1] if instruction_idx < len(digits) else self.num_classes
+        target_idx = instruction_idx + 1
+        target = digits[target_idx] if target_idx < len(digits) else self.num_classes
 
         digit_mask = np.zeros_like(image)
         start_col = instruction_idx * self.digit_width
@@ -49,8 +50,8 @@ class DigitsDataset(Dataset):
 
         return {
             'image': image,
-            'segmentation': torch.from_numpy(instruct_segment),
-            'digits': torch.from_numpy(digits),
+            'segmentation': instruct_segment,
+            'digits': digits,
             'instruction': instruction,
             'target': target,
         }

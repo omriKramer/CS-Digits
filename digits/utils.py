@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
-import numpy as np
+import torch
 
 
-def imshow(img):
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+def imshow(img, cmap=None):
+    if isinstance(img, torch.Tensor):
+        img = img.numpy().transpose(1, 2, 0)
+    plt.imshow(img, cmap=cmap)
     plt.show()
 
 
