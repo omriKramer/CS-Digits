@@ -2,7 +2,6 @@
 import numpy as np
 import torch
 import torch.optim as optim
-import torch.nn as nn
 import torchvision
 
 from digits.dataset import DigitsDataset
@@ -12,8 +11,12 @@ from digits import utils
 
 #%%
 data_dir = 'data/digits/'
-train = DigitsDataset(data_dir + 'train', transform=torchvision.transforms.ToTensor())
-test = DigitsDataset(data_dir + 'test', transform=torchvision.transforms.ToTensor())
+transform = torchvision.transforms.Compose([
+    torchvision.transforms.Pad((44, 2)),
+    torchvision.transforms.ToTensor(),
+])
+train = DigitsDataset(data_dir + 'train', transform=transform)
+test = DigitsDataset(data_dir + 'test', transform=transform)
 
 loaders_dict = {
     'train': torch.utils.data.DataLoader(train, batch_size=4, shuffle=True),
@@ -21,12 +24,11 @@ loaders_dict = {
 }
 
 #%%
-model = counter_stream.CounterStream(num_classes=10)
+model = counter_stream.CounterStreamNet([2, 2, 2, 2], num_classes=11)
 optimizer = optim.Adam(model.parameters())
-criterion = nn.BCEWithLogitsLoss()
 
 #%% Train the model
-model, hist = train_model(model, loaders_dict, criterion, optimizer, num_epochs=25)
+model, hist = train_model(model, loaders_dict, optimizer, num_epochs=25)
 
 #%% Alternatively load the model
 checkpoint = torch.load('digits/checkpoint25.tar')

@@ -2,9 +2,16 @@ import time
 import copy
 
 import torch
+from torch import nn
 
 
-def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
+def train_model(model, dataloaders, optimizer, num_epochs=25):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    digits_loss = nn.BCEWithLogitsLoss()
+    segmentation_loss = nn.MSELoss()
+
     since = time.time()
 
     val_acc_history = []
@@ -27,10 +34,15 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
             running_corrects = 0
 
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
-                y_onehot = torch.FloatTensor(labels.size(0), 10)
+            for data in dataloaders[phase]:
+                image = data['image'].to(device)
+                digits = data['digits'].to(device)
+                segmentation = data['segmentation'].to(device)
+                instruction = data['instruction'].to(device)
+
+                y_onehot = torch.FloatTensor(data['digits'].size(0), 10)
                 y_onehot.zero_()
-                y_onehot.scatter_(1, labels, 1)
+                y_onehot.scatter_(1, data['digits'], 1)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -38,11 +50,14 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    # Get model outputs and calculate loss
-                    outputs = model(inputs)
-                    loss = criterion(outputs, y_onehot)
+                    bu_output = model(image, 'BU')
+                    bu_loss = digits_loss(digits, y_onehot)
 
-                    preds = outputs.sigmoid() > 0.8
+                    pred_segmentation = model(instruction, 'TD')
+                    td_loss = segmentation_loss(pred_segmentation, segmentation)
+
+                    loss = bu_loss + td_loss
+                    pred_digits = bu_output.sigmoid() > 0.8
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -50,8 +65,8 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
                         optimizer.step()
 
                 # statistics
-                running_loss += loss.item() * inputs.size(0)
-                is_correct = torch.sum(preds.eq(y_onehot.to(dtype=preds.dtype)), 1) == 10
+                running_loss += loss.item() * image.size(0)
+                is_correct = torch.sum(pred_digits.eq(y_onehot.to(dtype=pred_digits.dtype)), 1) == 10
                 running_corrects += torch.sum(is_correct)
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
