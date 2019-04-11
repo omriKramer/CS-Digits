@@ -1,4 +1,9 @@
+from abc import ABC
+import itertools
+
+import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1):
@@ -11,30 +16,69 @@ def conv1x1(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
-class BasicBlock(nn.Module):
-    expansion = 1
+class InterpolateConv(nn.Module):
+    def __init__(self, in_planes, out_planes, scale_factor, mode='bilinear'):
+        super().__init__()
+        self.conv = conv1x1(in_planes, out_planes)
+        self.scale_factor = scale_factor
+        self.mode = mode
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=None):
-        super(BasicBlock, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        if groups != 1:
-            raise ValueError('BasicBlock only supports groups=1')
-        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = norm_layer(planes)
+    def forward(self, x):
+        x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
+        x = self.conv(x)
+        return x
+
+
+class CSModule(nn.Module, ABC):
+
+    def forward(self, x, mode):
+        if mode == 'BU':
+            return self.bottom_up(x)
+        elif mode == 'TD':
+            return self.top_down(x)
+
+    def bottom_up(self, x):
+        raise NotImplementedError
+
+    def top_down(self, x):
+        raise NotImplementedError
+
+
+class CounterStreamBlock(CSModule):
+
+    def __init__(self, in_planes, planes, stride=1, downsample=None, upsample=None):
+        super().__init__()
         self.relu = nn.ReLU(inplace=True)
+
+        self.conv1 = conv3x3(in_planes, planes, stride)
+        self.bn1 = nn.BatchNorm2d(planes)
+
         self.conv2 = conv3x3(planes, planes)
-        self.bn2 = norm_layer(planes)
+        self.bn2 = nn.BatchNorm2d(planes)
+
+        self.bu1_out = self.bu2_out = None
+
+        self.td_multp1 = nn.Parameter(torch.rand(planes))
+        self.td_side_bn1 = nn.BatchNorm2d(planes)
+        self.td_conv1 = conv3x3(planes, planes)
+        self.td_bn1 = nn.BatchNorm2d(planes)
+
+        self.td_multp2 = nn.Parameter(torch.rand(planes))
+        self.td_side_bn2 = nn.BatchNorm2d(planes)
+        self.td_conv2 = conv3x3(planes, in_planes)
+        self.td_bn2 = nn.BatchNorm2d(in_planes)
+
         self.downsample = downsample
+        self.upsample = upsample
         self.stride = stride
 
-    def forward(self, x):
+    def bottom_up(self, x):
         identity = x
 
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
+        self.bu1_out = out
 
         out = self.conv2(out)
         out = self.bn2(out)
@@ -44,44 +88,31 @@ class BasicBlock(nn.Module):
 
         out += identity
         out = self.relu(out)
+        self.bu2_out = out
 
         return out
 
+    def top_down(self, x):
+        x = self.bu2_out * self.td_multp1.expand_as(self.bu1_out) + x
+        x = self.td_side_bn1(x)
+        identity = self.relu(x)
 
-class Bottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=None):
-        super(Bottleneck, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv1x1(inplanes, planes)
-        self.bn1 = norm_layer(planes)
-        self.conv2 = conv3x3(planes, planes, stride, groups)
-        self.bn2 = norm_layer(planes)
-        self.conv3 = conv1x1(planes, planes * self.expansion)
-        self.bn3 = norm_layer(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x):
-        identity = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
+        out = self.td_conv1(identity)
+        out = self.td_bn1(out)
         out = self.relu(out)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
+        out = self.bu1_out * self.td_multp2.expand_as(self.bu2_out) + out
+        out = self.td_side_bn2(out)
         out = self.relu(out)
 
-        out = self.conv3(out)
-        out = self.bn3(out)
+        if self.stride == 2:
+            out = F.interpolate(out, scale_factor=2, mode='bilinear')
 
-        if self.downsample is not None:
-            identity = self.downsample(x)
+        out = self.td_conv2(out)
+        out = self.bu2_out(out)
+
+        if self.upsample is not None:
+            identity = self.upsample(identity)
 
         out += identity
         out = self.relu(out)
@@ -89,26 +120,32 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class CounterStreamNet(CSModule):
 
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
-                 groups=1, width_per_group=64, norm_layer=None):
-        super(ResNet, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        planes = [int(width_per_group * groups * 2 ** i) for i in range(4)]
+    def __init__(self, layers, num_classes=1000):
+        super().__init__()
+        planes = [int(64 * 2 ** i) for i in range(4)]
         self.inplanes = planes[0]
-        self.conv1 = nn.Conv2d(1, planes[0], kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        self.bn1 = norm_layer(planes[0])
+        self.conv1 = nn.Conv2d(1, planes[0], kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes[0])
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, planes[0], layers[0], groups=groups, norm_layer=norm_layer)
-        self.layer2 = self._make_layer(block, planes[1], layers[1], stride=2, groups=groups, norm_layer=norm_layer)
-        self.layer3 = self._make_layer(block, planes[2], layers[2], stride=2, groups=groups, norm_layer=norm_layer)
-        self.layer4 = self._make_layer(block, planes[3], layers[3], stride=2, groups=groups, norm_layer=norm_layer)
+
+        self.layer1 = self._make_layer(planes[0], layers[0])
+        self.layer2 = self._make_layer(planes[1], layers[1], stride=2)
+        self.layer3 = self._make_layer(planes[2], layers[2], stride=2)
+        self.layer4 = self._make_layer(planes[3], layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(planes[3] * block.expansion, num_classes)
+        self.bu_fc = nn.Linear(planes[3], num_classes)
+
+        self.bu_features = self.post_conv1 = None
+        self.pre_pooling_size = None
+        self.td_multp = nn.Parameter(torch.rand(planes[3]))
+        self.td_bn1 = nn.BatchNorm2d(planes[3])
+        self.embedding = nn.Embedding(num_classes, planes[3])
+        self.td_fc = nn.Linear(2 * planes[3], planes[3])
+        self.unpool = InterpolateConv(planes[0], planes[0], scale_factor=2)
+        self.td_conv1 = nn.Conv2d(planes[0], 1, kernel_size=7, stride=2, padding=3, bias=False)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -117,53 +154,59 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if zero_init_residual:
-            for m in self.modules():
-                if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.bn3.weight, 0)
-                elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)
-
-    def _make_layer(self, block, planes, blocks, stride=1, groups=1, norm_layer=None):
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
+    def _make_layer(self, planes, blocks, stride=1):
+        downsample = upsample = None
+        if stride != 1 or self.inplanes != planes:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+                conv1x1(self.inplanes, planes, stride),
+                nn.BatchNorm2d(planes),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, groups, norm_layer))
-        self.inplanes = planes * block.expansion
+            upsample = nn.Sequential(
+                InterpolateConv(planes, self.inplanes, scale_factor=stride),
+                nn.BatchNorm2d(self.inplanes)
+            )
+
+        layers = [CounterStreamBlock(self.inplanes, planes, stride, downsample, upsample)]
+        self.inplanes = planes
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=groups, norm_layer=norm_layer))
+            layers.append(CounterStreamBlock(planes, planes))
 
-        return nn.Sequential(*layers)
+        return nn.ModuleList(layers)
 
-    def forward(self, x):
+    def bottom_up(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+        self.post_conv1 = x
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        for b in itertools.chain(self.layer1, self.layer2, self.layer3, self.layer4):
+            x = b(x, 'BU')
 
+        self.pre_pooling_size = x.shape
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        self.bu_features = x
+        x = self.bu_fc(x)
 
         return x
 
+    def top_down(self, x):
+        x = self.embedding(x)
+        x = torch.cat((x, self.bu_features))
+        x = self.td_fc(x)
+        x = self.relu(x)
 
-class CounterStream(ResNet):
+        x = x.expand(self.pre_pooling_size)
+        for b in reversed(list(itertools.chain(self.layer1, self.layer2, self.layer3, self.layer4))):
+            x = b(x, 'TD')
 
-    def __init__(self, num_classes=1000):
-        super().__init__(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
+        x = self.unpool(x)
+        x = self.post_conv1 * self.td_multp.expand_as(self.post_conv1) + x
+        x = self.td_bn1(x)
+        x = self.relu(x)
+
+        x = F.interpolate(x, scale_factor=2, mode='bilinear')
+        x = self.td_conv1(x)
+        return x
