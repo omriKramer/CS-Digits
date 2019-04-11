@@ -24,11 +24,12 @@ loaders_dict = {
 }
 
 #%%
-model = counter_stream.CounterStreamNet([2, 2, 2, 2], num_classes=11)
+num_classes = 11
+model = counter_stream.CounterStreamNet([2, 2, 2, 2], num_classes=num_classes)
 optimizer = optim.Adam(model.parameters())
 
 #%% Train the model
-model, hist = train_model(model, loaders_dict, optimizer, num_epochs=25)
+model, hist = train_model(model, loaders_dict, optimizer, num_classes, num_epochs=25)
 
 #%% Alternatively load the model
 checkpoint = torch.load('digits/checkpoint25.tar')
