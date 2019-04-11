@@ -66,7 +66,7 @@ def train_model(model, dataloaders, optimizer, num_classes, num_epochs=25):
 
                 # statistics
                 running_loss += loss.item() * len(image)
-                is_correct = torch.sum(pred_digits.eq(y_onehot.to(dtype=pred_digits.dtype)), 1) == 10
+                is_correct = torch.sum(pred_digits.eq(y_onehot.to(dtype=pred_digits.dtype)), 1) == num_classes
                 running_corrects += torch.sum(is_correct)
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
