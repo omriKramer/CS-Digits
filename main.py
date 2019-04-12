@@ -46,13 +46,17 @@ data = data_iter.next()
 utils.imshow(torchvision.utils.make_grid(data['image'], nrow=1))
 
 utils.imshow(torchvision.utils.make_grid(data['segmentation'], nrow=1))
-# utils.imshow(np.vstack(data['segmentation'].numpy()), cmap='binary')
 
 
 #%%
 model.eval()
-outputs = model(images).sigmoid()
+outputs = model(data['image'], 'BU').sigmoid()
 for x in outputs:
     print(utils.one_hot_to_indices(x, confidence=0.8))
 
 
+#%%
+with torch.no_grad():
+    print(f'instructions are {data["instruction"]}')
+    seg_out = model(data['instruction'], 'TD')
+    utils.imshow(torchvision.utils.make_grid(seg_out, nrow=1))
