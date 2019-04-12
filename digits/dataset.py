@@ -44,7 +44,7 @@ class DigitsDataset(Dataset):
         start_col = instruction_idx * self.digit_width
         digit_mask[:, start_col:start_col+self.digit_width] = 1
         instruct_segment = np.where(digit_mask, np.array(image) > 20, 0)
-        instruct_segment = Image.fromarray(instruct_segment, mode='1')
+        instruct_segment = Image.fromarray(255 * instruct_segment.astype(np.uint8), mode='L')
 
         if self.transform:
             image = self.transform(image)

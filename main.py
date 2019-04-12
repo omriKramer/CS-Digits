@@ -1,5 +1,4 @@
 #%%
-import numpy as np
 import torch
 import torch.optim as optim
 import torchvision
@@ -23,16 +22,19 @@ loaders_dict = {
     'val': torch.utils.data.DataLoader(test, batch_size=4, shuffle=True)
 }
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 #%%
 num_classes = 11
 model = counter_stream.CounterStreamNet([2, 2, 2, 2], num_classes=num_classes)
 optimizer = optim.Adam(model.parameters())
+model.to(device)
 
 #%% Train the model
-model, hist = train_model(model, loaders_dict, optimizer, num_classes, num_epochs=25)
+model, hist = train_model(model, loaders_dict, optimizer, num_classes, device, num_epochs=25)
 
 #%% Alternatively load the model
-checkpoint = torch.load('digits/checkpoint25.tar')
+checkpoint = torch.load('digits/model.tar', map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
@@ -43,7 +45,8 @@ data = data_iter.next()
 
 utils.imshow(torchvision.utils.make_grid(data['image'], nrow=1))
 
-utils.imshow(np.vstack(data['segmentation'].numpy()), cmap='binary')
+utils.imshow(torchvision.utils.make_grid(data['segmentation'], nrow=1))
+# utils.imshow(np.vstack(data['segmentation'].numpy()), cmap='binary')
 
 
 #%%

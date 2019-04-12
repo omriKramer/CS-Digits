@@ -5,10 +5,7 @@ import torch
 from torch import nn
 
 
-def train_model(model, dataloaders, optimizer, num_classes, num_epochs=25):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
+def train_model(model, dataloaders, optimizer, num_classes, device, num_epochs=25):
     digits_loss = nn.BCEWithLogitsLoss()
     segmentation_loss = nn.MSELoss()
 
