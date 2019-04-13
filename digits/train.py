@@ -6,8 +6,9 @@ from torch import nn
 
 
 def train_model(model, dataloaders, optimizer, num_classes, device, num_epochs=25):
-    digits_loss = nn.BCEWithLogitsLoss()
-    segmentation_loss = nn.MSELoss()
+    digits_criterion = nn.BCEWithLogitsLoss()
+    segmentation_criterion = nn.MSELoss()
+    target_critertion = nn.CrossEntropyLoss()
 
     since = time.time()
 
@@ -36,6 +37,7 @@ def train_model(model, dataloaders, optimizer, num_classes, device, num_epochs=2
                 digits = data['digits'].to(device)
                 segmentation = data['segmentation'].to(device)
                 instruction = data['instruction'].to(device)
+                target = data['target'].to(device)
 
                 y_onehot = torch.FloatTensor(len(image), num_classes).to(device)
                 y_onehot.zero_()
@@ -47,14 +49,19 @@ def train_model(model, dataloaders, optimizer, num_classes, device, num_epochs=2
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
+                    model.clear()
+
                     bu_output = model(image, 'BU')
-                    bu_loss = digits_loss(bu_output, y_onehot)
+                    digits_loss = digits_criterion(bu_output, y_onehot)
 
                     pred_segmentation = model(instruction, 'TD')
-                    td_loss = segmentation_loss(pred_segmentation, segmentation)
+                    segmentation_loss = segmentation_criterion(pred_segmentation, segmentation)
 
-                    loss = bu_loss + td_loss
-                    pred_digits = bu_output.sigmoid() > 0.8
+                    bu2_output = model(image, 'BU')
+                    target_loss = target_critertion(bu2_output, target)
+
+                    loss = digits_loss + segmentation_loss + target_loss
+                    _, preds = torch.max(bu2_output, 1)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -63,8 +70,7 @@ def train_model(model, dataloaders, optimizer, num_classes, device, num_epochs=2
 
                 # statistics
                 running_loss += loss.item() * len(image)
-                is_correct = torch.sum(pred_digits.eq(y_onehot.to(dtype=pred_digits.dtype)), 1) == num_classes
-                running_corrects += torch.sum(is_correct)
+                running_corrects += torch.sum(preds == target)
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
             epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)

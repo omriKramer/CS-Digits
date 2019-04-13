@@ -43,6 +43,10 @@ class CSModule(nn.Module, ABC):
     def top_down(self, x):
         raise NotImplementedError
 
+    def clear(self):
+        """Clear the inner state created by Bottom-up/Top-Down runs."""
+        raise NotImplementedError
+
 
 class CounterStreamBlock(CSModule):
 
@@ -53,18 +57,27 @@ class CounterStreamBlock(CSModule):
         self.conv1 = conv3x3(in_planes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
 
+        self.bu_multp1 = nn.Parameter(torch.rand(planes))
+        self.bu_side_bn1 = nn.BatchNorm2d(planes)
+
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
 
-        self.bu1_out = self.bu2_out = None
+        self.bu_multp2 = nn.Parameter(torch.rand(planes))
+        self.bu_side_bn2 = nn.BatchNorm2d(planes)
+
+        self.bu_out1 = self.bu_out2 = None
+        self.td_in1 = self.td_in2 = None
 
         self.td_multp1 = nn.Parameter(torch.rand(planes))
         self.td_side_bn1 = nn.BatchNorm2d(planes)
+
         self.td_conv1 = conv3x3(planes, planes)
         self.td_bn1 = nn.BatchNorm2d(planes)
 
         self.td_multp2 = nn.Parameter(torch.rand(planes))
         self.td_side_bn2 = nn.BatchNorm2d(planes)
+
         self.td_conv2 = conv3x3(planes, in_planes)
         self.td_bn2 = nn.BatchNorm2d(in_planes)
 
@@ -78,32 +91,45 @@ class CounterStreamBlock(CSModule):
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
-        self.bu1_out = out
+
+        if self.td_in2 is not None:
+            out = self.td_in2 + self.bu_multp1[None, :, None, None].expand_as(self.td_in2) + out
+            out = self.bu_side_bn1(out)
+            out = self.relu(out)
+
+        self.bu_out1 = out
 
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.downsample is not None:
+        if self.downsample:
             identity = self.downsample(x)
 
         out += identity
         out = self.relu(out)
-        self.bu2_out = out
+        if self.td_in1 is not None:
+            out = self.td_in1 * self.bu_multp2[None, :, None, None].expand_as(self.td_in1) + out
+            out = self.bu_side_bn2(out)
+            out = self.relu(out)
+
+        self.bu_out2 = out
 
         return out
 
     def top_down(self, x):
-        x = self.bu2_out * self.td_multp1[None, :, None, None].expand_as(self.bu1_out) + x
+        x = self.bu_out2 * self.td_multp1[None, :, None, None].expand_as(self.bu_out1) + x
         x = self.td_side_bn1(x)
         identity = self.relu(x)
+        self.td_in1 = identity
 
         out = self.td_conv1(identity)
         out = self.td_bn1(out)
         out = self.relu(out)
 
-        out = self.bu1_out * self.td_multp2[None, :, None, None].expand_as(self.bu2_out) + out
+        out = self.bu_out1 * self.td_multp2[None, :, None, None].expand_as(self.bu_out2) + out
         out = self.td_side_bn2(out)
         out = self.relu(out)
+        self.td_in2 = out
 
         if self.stride == 2:
             out = F.interpolate(out, scale_factor=2, mode='bilinear')
@@ -111,13 +137,17 @@ class CounterStreamBlock(CSModule):
         out = self.td_conv2(out)
         out = self.td_bn2(out)
 
-        if self.upsample is not None:
+        if self.upsample:
             identity = self.upsample(identity)
 
         out += identity
         out = self.relu(out)
 
         return out
+
+    def clear(self):
+        self.bu_out1 = self.bu_out2 = None
+        self.td_in1 = self.td_in2 = None
 
 
 class CounterStreamNet(CSModule):
@@ -130,6 +160,9 @@ class CounterStreamNet(CSModule):
         self.bn1 = nn.BatchNorm2d(planes[0])
         self.relu = nn.ReLU(inplace=True)
 
+        self.bu_multp = nn.Parameter(torch.rand(planes[0]))
+        self.bu_side_bn = nn.BatchNorm2d(planes[0])
+
         self.layer1 = self._make_layer(planes[0], layers[0])
         self.layer2 = self._make_layer(planes[1], layers[1], stride=2)
         self.layer3 = self._make_layer(planes[2], layers[2], stride=2)
@@ -137,7 +170,8 @@ class CounterStreamNet(CSModule):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.bu_fc = nn.Linear(planes[3], num_classes)
 
-        self.bu_features = self.post_conv1 = None
+        self.bu_features = self.bu_layer1_in = None
+        self.td_conv1_in = None
         self.pre_pooling_size = None
 
         self.embedding = nn.Embedding(num_classes, planes[3])
@@ -178,10 +212,15 @@ class CounterStreamNet(CSModule):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        self.post_conv1 = x
+        if self.td_conv1_in is not None:
+            x = self.td_conv1_in * self.bu_multp[None, :, None, None].expand_as(self.td_conv1_in) + x
+            x = self.bu_side_bn(x)
+            x = self.relu(x)
 
-        for b in itertools.chain(self.layer1, self.layer2, self.layer3, self.layer4):
-            x = b(x, 'BU')
+        self.bu_layer1_in = x
+
+        for blk in self._iter_inner():
+            x = blk(x, 'BU')
 
         self.pre_pooling_size = x.shape
         x = self.avgpool(x)
@@ -198,13 +237,22 @@ class CounterStreamNet(CSModule):
         x = self.relu(x)
 
         x = x[:, :, None, None].expand(self.pre_pooling_size)
-        for b in reversed(list(itertools.chain(self.layer1, self.layer2, self.layer3, self.layer4))):
-            x = b(x, 'TD')
+        for blk in reversed(list(self._iter_inner())):
+            x = blk(x, 'TD')
 
-        x = self.post_conv1 * self.td_multp[None, :,  None, None].expand_as(self.post_conv1) + x
+        x = self.bu_layer1_in * self.td_multp[None, :, None, None].expand_as(self.bu_layer1_in) + x
         x = self.td_bn1(x)
         x = self.relu(x)
 
         x = F.interpolate(x, scale_factor=2, mode='bilinear')
         x = self.td_conv1(x)
         return x
+
+    def clear(self):
+        self.bu_features = self.bu_layer1_in = self.td_conv1_in = self.pre_pooling_size = None
+        for blk in self._iter_inner():
+            blk.clear()
+
+    def _iter_inner(self):
+        iterator = itertools.chain(self.layer1, self.layer2, self.layer3, self.layer4)
+        return iterator

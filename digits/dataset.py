@@ -17,7 +17,7 @@ class DigitsDataset(Dataset):
             num_digits: Number of digits in an image.
             num_classes: Number of Classes including the "None" class.
             digit_width: Width of every digit inside the image.
-            transofrm: Optional transform to be applied on the image. 
+            transform: Optional transform to be applied on the image.
         """
         self.transform = transform
         self.digit_width = digit_width
@@ -38,7 +38,7 @@ class DigitsDataset(Dataset):
         digits = np.array([int(digit) for digit in label_string])
         instruction = digits[instruction_idx]
         target_idx = instruction_idx + 1
-        target = digits[target_idx] if target_idx < len(digits) else self.num_classes
+        target = digits[target_idx] if target_idx < len(digits) else self.num_classes - 1
 
         digit_mask = np.zeros_like(image)
         start_col = instruction_idx * self.digit_width
