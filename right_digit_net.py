@@ -34,7 +34,7 @@ model.to(device)
 model, hist = train_model(model, loaders_dict, optimizer, num_classes, device, num_epochs=25)
 
 #%% Alternatively load the model
-checkpoint = torch.load('digits/model.tar', map_location=device)
+checkpoint = torch.load('digits/model2.tar', map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
@@ -49,9 +49,10 @@ utils.imshow(torchvision.utils.make_grid(data['segmentation'], nrow=1))
 
 
 #%%
+model.clear()
 model.eval()
-outputs = model(data['image'], 'BU').sigmoid()
-for x in outputs:
+bu1_output = model(data['image'], 'BU').sigmoid()
+for x in bu1_output:
     print(utils.one_hot_to_indices(x, confidence=0.8))
 
 
@@ -60,3 +61,8 @@ with torch.no_grad():
     print(f'instructions are {data["instruction"]}')
     seg_out = model(data['instruction'], 'TD')
     utils.imshow(torchvision.utils.make_grid(seg_out, nrow=1))
+
+#%%
+bu2_output = model(data['image'], 'BU')
+_, preds = torch.max(bu2_output, 1)
+print(preds)
