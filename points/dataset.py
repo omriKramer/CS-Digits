@@ -35,7 +35,7 @@ class PointsDataset(Dataset):
 
         point_mask = np.zeros_like(image)
         i, j = point
-        point_mask[i-1:i+2, j-1:j+2] = 1
+        point_mask[i-1:i+2, j-1:j+2] = 255
         instruct_segment = (image > 0) * point_mask
 
         if self.transform:
@@ -46,5 +46,6 @@ class PointsDataset(Dataset):
             'image': image,
             'segmentation': instruct_segment,
             'instruction': instruction,
-            'point': point,
+            'instruction_idx': instruction_idx,
+            'point': np.array(point),
         }
