@@ -57,7 +57,7 @@ def train_model(model, dataloaders, optimizer, criterion, device, num_epochs=25)
                 segmentation = segmentation.to(torch.uint8)
                 union = pred_segmentation | segmentation
                 intersection = pred_segmentation & segmentation
-                iou = union.sum((1, 2), dtype=torch.float) / intersection.sum((1, 2), dtype=torch.float)
+                iou = intersection.sum((1, 2), dtype=torch.float) / union.sum((1, 2), dtype=torch.float)
                 running_iou += iou.sum()
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
