@@ -1,20 +1,16 @@
 import time
 import copy
-import math
 
 import torch
-from torch import nn
 
 
-def train_model(model, dataloaders, optimizer, device, num_epochs=25):
-    segmentation_criterion = nn.MSELoss()
-
+def train_model(model, dataloaders, optimizer, criterion, device, num_epochs=25):
     since = time.time()
 
     val_acc_history = []
 
     best_model_wts = copy.deepcopy(model.state_dict())
-    best_loss = math.inf
+    best_iou = 0
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -28,6 +24,7 @@ def train_model(model, dataloaders, optimizer, device, num_epochs=25):
                 model.eval()   # Set model to evaluate mode
 
             running_loss = 0.0
+            running_iou = 0.0
 
             # Iterate over data.
             for data in dataloaders[phase]:
@@ -47,7 +44,7 @@ def train_model(model, dataloaders, optimizer, device, num_epochs=25):
                     model(image, 'BU')
 
                     pred_segmentation = model(instruction_idx, 'TD')
-                    loss = segmentation_criterion(pred_segmentation, segmentation)
+                    loss = criterion(pred_segmentation, segmentation)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
@@ -56,23 +53,30 @@ def train_model(model, dataloaders, optimizer, device, num_epochs=25):
 
                 # statistics
                 running_loss += loss.item() * len(image)
+                pred_segmentation = pred_segmentation > 0.5
+                segmentation = segmentation.to(torch.uint8)
+                union = pred_segmentation | segmentation
+                intersection = pred_segmentation & segmentation
+                iou = union.sum((1, 2), dtype=torch.float) / intersection.sum((1, 2), dtype=torch.float)
+                running_iou += iou.sum()
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
+            epoch_iou = running_iou / len(dataloaders[phase].dataset)
 
-            print(f'{phase} Loss: {epoch_loss:.4f}')
+            print(f'{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}')
 
             # deep copy the model
-            if phase == 'val' and epoch_loss < best_loss:
-                best_loss = epoch_loss
+            if phase == 'val' and epoch_iou > best_iou:
+                best_iou = epoch_iou
                 best_model_wts = copy.deepcopy(model.state_dict())
             if phase == 'val':
-                val_acc_history.append(epoch_loss)
+                val_acc_history.append(epoch_iou)
 
         print()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print(f'Best val loss: {best_loss:4f}')
+    print(f'Best val IoU: {best_iou:4f}')
 
     # load best model weights
     model.load_state_dict(best_model_wts)
