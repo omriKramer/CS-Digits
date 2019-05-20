@@ -1,5 +1,7 @@
-import numpy as np
 import operator
+
+import numpy as np
+from skimage import morphology, measure, feature, filters
 
 size = 28
 
@@ -12,8 +14,8 @@ def max_score_point(score, mask):
 
 
 class FourInterestPoints:
-    def __init__(self, skeleton):
-        self._skeleton = skeleton
+    def __init__(self, image):
+        self._skeleton = morphology.skeletonize(image > 120)
         self._find_points()
 
     def climb_up(self, start):
@@ -60,3 +62,20 @@ class FourInterestPoints:
         has_left_neighbor += np.roll(self._skeleton, 3, axis=1)
         self.middle_right = max_score_point(lambda i, j: j - abs(i - middle_left[0]),
                                             has_left_neighbor * self._skeleton)
+
+
+class EightInterestPoints:
+
+    def __init__(self, image):
+        for thresh in [120, 50, 20, 200]:
+            blanks = np.where(image > thresh, 0, 1)
+            labels = morphology.label(blanks, connectivity=1)
+            props = measure.regionprops(labels, coordinates='xy')
+            if len(props) > 2:
+                props.sort(key=operator.attrgetter('area'), reverse=True)
+                self.bottom, self.top = props[1].centroid, props[2].centroid
+                if self.bottom[0] > self.top[0]:
+                    self.bottom, self.top = self.top, self.bottom
+                break
+        else:
+            raise ValueError('Failed to find centers in image')
