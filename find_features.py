@@ -48,7 +48,6 @@ eights = [np.array(image) for image, label in mnist_train if label == 8]
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=32):
-
     image = eights[i]
     ax.imshow(image, cmap='gray')
     try:
@@ -69,3 +68,22 @@ plt.show()
 fives = [np.array(image) for image, label in mnist_train if label == 5]
 
 #%%
+fig, axes = plt.subplots(2, 2)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=28):
+    image = fives[i]
+    ax.imshow(image, cmap='gray')
+    points = extract.FiveInterestPoints(image)
+    mask = np.zeros((*image.shape, 3), dtype=int)
+    mask[points.top] = 0, 255, 0
+    mask[points.bottom] += 0, 0, 255
+    ax.imshow(mask, alpha=0.7)
+
+    points = points.top_right, points.top_left, points.bottom_left, points.end_circle
+    x, y = zip(*points)
+    ax.plot(y, x, '.r')
+    ax.set_title(i)
+    ax.set_axis_off()
+
+fig.tight_layout()
+plt.show()

@@ -79,3 +79,86 @@ class EightInterestPoints:
                 break
         else:
             raise ValueError('Failed to find centers in image')
+
+
+class FiveInterestPoints:
+
+    def __init__(self, image):
+        segmentation = image > 60
+        self._skeleton = morphology.skeletonize(segmentation)
+
+        self.top_right = max_score_point(lambda i, j: j + (size - i), self._skeleton)
+        self.top_left = self.climb_left(self.top_right)
+        mask = np.zeros_like(image, dtype=bool)
+        mask[self.top_right[0]-4:self.top_left[0]+1, self.top_left[1]-4:self.top_right[1]+5] = True
+        self.top = segmentation * mask
+
+        self.bottom_left = max_score_point(lambda i, j: i + (size-j), self._skeleton)
+        self.end_circle = self.circle(self.bottom_left)
+        mask = np.zeros_like(image, dtype=bool)
+        mask[self.end_circle[0]:] = True
+        self.bottom = segmentation * mask
+
+    def climb_left(self, start):
+        i, j = start
+        while True:
+            if self._skeleton[i, j - 1]:
+                j -= 1
+            elif self._skeleton[i-1, j-1]:
+                i -= 1
+                j -= 1
+            elif self._skeleton[i+1, j - 1]:
+                i += 1
+                j -= 1
+            else:
+                return i, j
+
+    def circle(self, start):
+        i, j = start
+        previous_up = False
+        while True:
+            if self._skeleton[i+1, j+1]:
+                i += 1
+                j += 1
+                previous_up = False
+            elif self._skeleton[i, j+1]:
+                j += 1
+                previous_up = False
+            elif self._skeleton[i-1, j+1]:
+                i -= 1
+                j += 1
+                previous_up = False
+            elif self._skeleton[i-1, j] and not previous_up:
+                previous_up = True
+                i -= 1
+            else:
+                break
+
+        if self._skeleton[i-1, j-1]:
+            i -= 1
+            j -= 1
+
+        while True:
+            if self._skeleton[i-2, j]:
+                i -= 2
+            elif self._skeleton[i-1, j]:
+                i -= 2
+            else:
+                break
+
+        previous_up = False
+        while True:
+            if self._skeleton[i-1, j-1]:
+                i -= 1
+                j -= 1
+                previous_up = False
+            elif self._skeleton[i, j-1]:
+                j -= 1
+                previous_up = False
+            elif self._skeleton[i-1, j] and not previous_up:
+                previous_up = True
+                i -= 1
+            elif previous_up:
+                return i+1, j
+            else:
+                return i, j
