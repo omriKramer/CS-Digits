@@ -1,7 +1,7 @@
 import operator
 
 import numpy as np
-from skimage import morphology, measure, feature, filters
+from skimage import morphology, measure
 
 size = 28
 

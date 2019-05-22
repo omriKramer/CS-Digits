@@ -3,7 +3,7 @@ import numpy as np
 import torchvision
 from torch.utils.data import Dataset
 
-from points import extract
+from parts import extract
 
 
 class PointsDataset(Dataset):

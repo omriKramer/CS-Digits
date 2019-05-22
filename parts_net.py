@@ -11,9 +11,9 @@ from torch import nn
 import torch.optim as optim
 import torchvision
 
-from points.counter_stream import CounterStreamNet
-from points.dataset import PointsDataset
-from points.train import train_model
+from parts.counter_stream import CounterStreamNet
+from parts.dataset import PointsDataset
+from parts.train import train_model
 
 #%%
 data_dir = 'data/'
@@ -43,7 +43,7 @@ criterion = nn.MSELoss()
 model, hist = train_model(model, loaders_dict, optimizer, criterion, device, num_epochs=2)
 
 #%% Alternatively load the model
-checkpoint = torch.load('points/model_mse.tar', map_location=device)
+checkpoint = torch.load('parts/model_mse.tar', map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 

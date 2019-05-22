@@ -7,7 +7,7 @@ import skimage
 from skimage.morphology import skeletonize
 import torchvision
 
-from points import extract
+from parts import extract
 # %%
 data_dir = 'data/'
 mnist_train = torchvision.datasets.MNIST(data_dir, train=True, download=False)
