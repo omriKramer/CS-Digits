@@ -5,10 +5,22 @@ from torch.utils.data import Dataset
 
 from parts import extract
 
+digit2extractor = {
+        4: extract.FourFeatures,
+        5: extract.FiveFeatures,
+        8: extract.EightFeatures,
+    }
 
-class PointsDataset(Dataset):
+features_table = {
+    4: ('top_left', 'top_right', 'middle_left', 'middle_right', 'bottom'),
+    5: ('top', 'bottom'),
+    8: ('top', 'bottom'),
+}
 
-    instructions = ['bottom', 'top_left', 'top_right', 'middle_left', 'middle_right']
+feature2idx = {f'{digit}:{feat}': idx for idx, (digit, feat) in enumerate(features_table.items())}
+
+
+class PartsDataset(Dataset):
 
     def __init__(self, root_dir, train=True, transform=None):
         """
@@ -17,35 +29,33 @@ class PointsDataset(Dataset):
             transform: Optional transform to be applied on the image.
         """
         self.transform = transform
-        mnist_train = torchvision.datasets.MNIST(root_dir, train=train, download=False)
-        self.fours = [np.array(image) for image, label in mnist_train if label == 4]
-        self.points = [extract.FourInterestPoints(image > 120) for image in self.fours]
+        mnist = torchvision.datasets.MNIST(root_dir, train=train, download=False)
+        self.items = []
+        for image, label in mnist:
+            image = np.array(image)
+            try:
+                fe = digit2extractor[label](image)
+                image_features = [(image, label, feat, seg) for feat, seg in fe.features.items()]
+                self.items.extend(image_features)
+            except (KeyError, ValueError):
+                pass
 
     def __len__(self):
-        return len(self.points) * len(self.instructions)
+        return len(self.items)
 
     def __getitem__(self, idx):
-        img_indx, instruction_idx = divmod(idx, len(self.instructions))
-
-        image = self.fours[img_indx]
-        points = self.points[img_indx]
-
-        instruction = self.instructions[instruction_idx]
-        point = points.__getattribute__(instruction)
-
-        point_mask = np.zeros_like(image)
-        i, j = point
-        point_mask[i-1:i+2, j-1:j+2] = 255
-        instruct_segment = (image > 0) * point_mask
+        image, label, instruction, segmentation = self.items[idx]
+        instruction = f'{label}:{instruction}'
+        instruction_idx = feature2idx[instruction]
 
         if self.transform:
             image = self.transform(image)
-            instruct_segment = self.transform(instruct_segment)
+            segmentation = self.transform(segmentation)
 
         return {
             'image': image,
-            'segmentation': instruct_segment,
+            'label': label,
+            'segmentation': segmentation,
             'instruction': instruction,
             'instruction_idx': instruction_idx,
-            'point': np.array(point),
         }

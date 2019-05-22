@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.feature import corner_harris, corner_peaks
 
-import skimage
 from skimage.morphology import skeletonize
 import torchvision
 
@@ -23,7 +22,7 @@ for i, ax_row in enumerate(axes, start=24):
     image = fours[i]
     skeleton = skeletonize(image > 120)
     skeleton_corners = corner_peaks(corner_harris(skeleton), min_distance=2, exclude_border=False, num_peaks=5)
-    interest_points = extract.FourInterestPoints(skeleton).points
+    interest_points = extract.FourFeatures(skeleton).points
 
     ax_row[0].imshow(image, cmap='gray')
     ax_row[0].set_ylabel(i)
@@ -42,17 +41,17 @@ fig.tight_layout()
 plt.show()
 
 #%%
-eights = [np.array(image) for image, label in mnist_train if label == 8]
+fives = [np.array(image) for image, label in mnist_train if label == 8]
 
 #%%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=32):
-    image = eights[i]
+    image = fives[i]
     ax.imshow(image, cmap='gray')
     try:
-        points = extract.EightInterestPoints(image)
-        points = points.bottom, points.top
+        points = extract.EightFeatures(image)
+        points = points.bottom_pt, points.top_pt
         x, y = zip(*points)
         ax.plot(y, x, '.r')
     except ValueError:
@@ -70,10 +69,10 @@ fives = [np.array(image) for image, label in mnist_train if label == 5]
 #%%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
-for i, ax in enumerate(axes, start=28):
+for i, ax in enumerate(axes, start=16):
     image = fives[i]
     ax.imshow(image, cmap='gray')
-    points = extract.FiveInterestPoints(image)
+    points = extract.FiveFeatures(image)
     mask = np.zeros((*image.shape, 3), dtype=int)
     mask[points.top] = 0, 255, 0
     mask[points.bottom] += 0, 0, 255
@@ -87,3 +86,5 @@ for i, ax in enumerate(axes, start=28):
 
 fig.tight_layout()
 plt.show()
+
+#%%

@@ -4,7 +4,7 @@ import copy
 import torch
 
 
-def train_model(model, dataloaders, optimizer, criterion, device, num_epochs=25):
+def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, device, num_epochs=25):
     since = time.time()
 
     val_acc_history = []
@@ -31,6 +31,7 @@ def train_model(model, dataloaders, optimizer, criterion, device, num_epochs=25)
                 image = data['image'].to(device)
                 segmentation = data['segmentation'].to(device)
                 instruction_idx = data['instruction_idx'].to(device)
+                labels = data['label'].to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -41,10 +42,13 @@ def train_model(model, dataloaders, optimizer, criterion, device, num_epochs=25)
                 # forward
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    model(image, 'BU')
+                    pred_output = model(image, 'BU')
+                    pred_loss = bu_criterion(pred_output, labels)
 
                     pred_segmentation = model(instruction_idx, 'TD')
-                    loss = criterion(pred_segmentation, segmentation)
+                    seg_loss = td_criterion(pred_segmentation, segmentation)
+
+                    loss = pred_loss + seg_loss
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
