@@ -63,7 +63,7 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
                 segmentation = segmentation.to(torch.uint8)
                 union = (pred_segmentation | segmentation).float().sum((1, 2, 3))
                 intersection = (pred_segmentation & segmentation).float().sum((1, 2, 3))
-                iou = (union + SMOOTH) / (intersection + SMOOTH)
+                iou = (intersection + SMOOTH) / (union + SMOOTH)
                 running_iou += iou.sum()
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
