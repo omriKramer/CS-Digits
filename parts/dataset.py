@@ -1,3 +1,4 @@
+
 import numpy as np
 
 import torchvision
@@ -17,7 +18,18 @@ features_table = {
     8: ('top', 'bottom'),
 }
 
-feature2idx = {f'{digit}:{feat}': idx for idx, (digit, feat) in enumerate(features_table.items())}
+
+def create_feature2idx():
+    d = {}
+    idx = 0
+    for digit, features in features_table.items():
+        for f in features:
+            d[f'{digit}:{f}'] = idx
+            idx += 1
+    return d
+
+
+feature2idx = create_feature2idx()
 
 
 class PartsDataset(Dataset):
@@ -45,6 +57,7 @@ class PartsDataset(Dataset):
 
     def __getitem__(self, idx):
         image, label, instruction, segmentation = self.items[idx]
+        segmentation = segmentation.astype(np.uint8) * 255
         instruction = f'{label}:{instruction}'
         instruction_idx = feature2idx[instruction]
 

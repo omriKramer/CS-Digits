@@ -39,8 +39,9 @@ model.to(device)
 optimizer = optim.Adam(model.parameters())
 
 #%% Train the model
-criterion = nn.MSELoss()
-model, hist = train_model(model, loaders_dict, optimizer, criterion, device, num_epochs=2)
+bu_criterion = nn.CrossEntropyLoss()
+td_criterion = nn.MSELoss()
+model, hist = train_model(model, loaders_dict, optimizer, bu_criterion, td_criterion, device, num_epochs=2)
 
 #%% Alternatively load the model
 checkpoint = torch.load('parts/model_mse.tar', map_location=device)
