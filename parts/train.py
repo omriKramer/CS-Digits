@@ -61,8 +61,8 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
                 running_loss += loss.item() * len(image)
                 pred_segmentation = pred_segmentation > 0.5
                 segmentation = segmentation.to(torch.uint8)
-                union = (pred_segmentation | segmentation).float().sum(1, 2, 3)
-                intersection = (pred_segmentation & segmentation).float().sum(1, 2, 3)
+                union = (pred_segmentation | segmentation).float().sum((1, 2, 3))
+                intersection = (pred_segmentation & segmentation).float().sum((1, 2, 3))
                 iou = (union + SMOOTH) / (intersection + SMOOTH)
                 running_iou += iou.sum()
 
