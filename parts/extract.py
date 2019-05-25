@@ -23,6 +23,12 @@ def segment_around_point(point, mask, length=5):
     return segmentation
 
 
+def validate_features(features):
+    to_delete = [key for key, segmentation in features.items() if not segmentation.any()]
+    for key in to_delete:
+        del features[key]
+
+
 class FourFeatures:
 
     def __init__(self, image):
@@ -36,6 +42,7 @@ class FourFeatures:
             'middle_right': segment_around_point(self.middle_right_pt, digit_seg),
             'bottom': segment_around_point(self.bottom_pt, digit_seg)
         }
+        validate_features(self.features)
 
     def _find_points(self):
         points = np.argwhere(self._skeleton)
@@ -103,6 +110,7 @@ class EightFeatures:
             'top': segment_around_point(self.top_pt, self.blanks, 3),
             'bottom': segment_around_point(self.bottom_pt, self.blanks, 3),
         }
+        validate_features(self.features)
 
 
 class FiveFeatures:
@@ -127,6 +135,7 @@ class FiveFeatures:
             'top': top,
             'bottom': bottom,
         }
+        validate_features(self.features)
 
     def climb_left(self, start):
         i, j = start

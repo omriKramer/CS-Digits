@@ -71,4 +71,5 @@ class PartsDataset(Dataset):
             'segmentation': segmentation,
             'instruction': instruction,
             'instruction_idx': instruction_idx,
+            'idx': idx,
         }
