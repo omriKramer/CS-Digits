@@ -1,4 +1,4 @@
-#%%
+# %%
 import itertools
 
 import numpy as np
@@ -15,13 +15,13 @@ from parts.counter_stream import CounterStreamNet
 import parts.dataset as ds
 from parts.train import train_model
 
-#%%
+# %%
 data_dir = 'data/'
 transform = torchvision.transforms.Compose([
     torchvision.transforms.Lambda(lambda img: np.pad(img, 2, 'constant')),
     torchvision.transforms.ToTensor(),
 ])
-train = ds.PartsDataset(data_dir, train=True,  transform=transform)
+train = ds.PartsDataset(data_dir, train=True, transform=transform)
 test = ds.PartsDataset(data_dir, train=False, transform=transform)
 
 loaders_dict = {
@@ -31,38 +31,40 @@ loaders_dict = {
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#%%
+# %%
 num_classes = 10
 num_instructions = len(ds.feature2idx)
 model = CounterStreamNet([2, 2, 2, 2], num_classes=num_classes, num_instructions=num_instructions)
 model.to(device)
 optimizer = optim.Adam(model.parameters())
 
-#%% Train the model
+# %% Train the model
 bu_criterion = nn.CrossEntropyLoss()
 td_criterion = nn.MSELoss()
 model, hist = train_model(model, loaders_dict, optimizer, bu_criterion, td_criterion, device, num_epochs=2)
 
-#%% Alternatively load the model
-checkpoint = torch.load('parts/model_mse.tar', map_location=device)
+# %% Alternatively load the model
+checkpoint = torch.load('parts/model.tar', map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-#%%
+# %%
 data_iter = iter(loaders_dict['val'])
 
-#%%
+# %%
 for i, data in enumerate(data_iter):
-    if i == 10:
+    if i == 1:
         break
     model.clear()
     model.eval()
     with torch.no_grad():
         bu1_output = model(data['image'], 'BU').sigmoid()
+        _, preds = bu1_output.max(1)
         seg_out = model(data['instruction_idx'], 'TD')
 
     fig, axes = plt.subplots(len(seg_out), 2)
-    for ax, img, gt, seg, instruction in zip(axes, data['image'], data['segmentation'], seg_out, data['instruction']):
+    for ax, img, gt, seg, instruction, pred in zip(axes, data['image'], data['segmentation'], seg_out,
+                                                   data['instruction'], preds):
         img = img.numpy().transpose(1, 2, 0).squeeze()
         gt = gt.numpy().transpose(1, 2, 0).squeeze()
         seg = seg.numpy().transpose(1, 2, 0).squeeze()
@@ -77,13 +79,15 @@ for i, data in enumerate(data_iter):
         ax[1].imshow(img, cmap='gray')
         ax[1].imshow(seg, alpha=0.7, cmap='gray')
         ax[1].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+        ax[1].set_ylabel(pred.item())
 
     axes[0][0].set_title('Ground Truth')
     axes[0][1].set_title('Output')
     fig.tight_layout()
-    # plt.show()
-    fig.savefig(f'../../Desktop/res{i}.png')
-#%%
+    plt.show()
+    # fig.savefig(f'../../Desktop/res{i}.png')
+
+# %%
 model.eval()
 results = []
 for data in loaders_dict['val']:
@@ -95,7 +99,7 @@ for data in loaders_dict['val']:
         gt = data['segmentation'].to(torch.uint8).squeeze()
         results.append((seg_out, gt, data['instruction']))
 
-#%%
+# %%
 model.eval()
 iou = []
 for seg_out, gt, _ in results:
@@ -107,10 +111,10 @@ for seg_out, gt, _ in results:
 iou = torch.cat(iou)
 print(iou.mean())
 
-#%%
+# %%
 _, _, inst = zip(*results)
 inst = list(itertools.chain.from_iterable(inst))
 
-#%%
+# %%
 s = pd.DataFrame({'iou': iou, 'instruction': inst})
 print(s.groupby('instruction').mean())

@@ -100,7 +100,7 @@ class EightFeatures:
             if len(props) > 2:
                 props.sort(key=operator.attrgetter('area'), reverse=True)
                 self.bottom_pt, self.top_pt = props[1].centroid, props[2].centroid
-                if self.bottom_pt[0] > self.top_pt[0]:
+                if self.bottom_pt[0] < self.top_pt[0]:
                     self.bottom_pt, self.top_pt = self.top_pt, self.bottom_pt
                 break
         else:
@@ -158,12 +158,12 @@ class FiveFeatures:
             if self._skeleton[i, j+1]:
                 j += 1
                 previous_up = False
-            elif self._skeleton[i-1, j+1]:
-                i -= 1
+            elif self._skeleton[i+1, j+1]:
+                i += 1
                 j += 1
                 previous_up = False
-            if self._skeleton[i+1, j+1]:
-                i += 1
+            elif self._skeleton[i-1, j+1]:
+                i -= 1
                 j += 1
                 previous_up = False
             elif self._skeleton[i-1, j] and not previous_up:

@@ -41,18 +41,18 @@ fig.tight_layout()
 plt.show()
 
 #%%
-fives = [np.array(image) for image, label in mnist_train if label == 8]
+eights = [np.array(image) for image, label in mnist_train if label == 8]
 
 #%%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=32):
-    image = fives[i]
+    image = eights[i]
     ax.imshow(image, cmap='gray')
     try:
-        points = extract.EightFeatures(image)
-        points = points.bottom_pt, points.top_pt
-        x, y = zip(*points)
+        fe = extract.EightFeatures(image)
+        fe = fe.bottom_pt, fe.top_pt
+        x, y = zip(*fe)
         ax.plot(y, x, '.r')
     except ValueError:
         pass
@@ -69,17 +69,17 @@ fives = [np.array(image) for image, label in mnist_train if label == 5]
 #%%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
-for i, ax in enumerate(axes, start=16):
+for i, ax in enumerate(axes, start=20):
     image = fives[i]
     ax.imshow(image, cmap='gray')
-    points = extract.FiveFeatures(image)
+    fe = extract.FiveFeatures(image)
     mask = np.zeros((*image.shape, 3), dtype=int)
-    mask[points.top] = 0, 255, 0
-    mask[points.bottom] += 0, 0, 255
+    mask[fe.features['top']] = 0, 255, 0
+    mask[fe.features['bottom']] += 0, 0, 255
     ax.imshow(mask, alpha=0.7)
 
-    points = points.top_right, points.top_left, points.bottom_left, points.end_circle
-    x, y = zip(*points)
+    fe = fe.top_right, fe.top_left, fe.bottom_left, fe.end_circle
+    x, y = zip(*fe)
     ax.plot(y, x, '.r')
     ax.set_title(i)
     ax.set_axis_off()
