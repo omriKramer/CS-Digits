@@ -158,7 +158,7 @@ class FiveFeatures:
             if self._skeleton[i, j+1]:
                 j += 1
                 previous_up = False
-            elif self._skeleton[i+1, j+1]:
+            elif i < SIZE-1 and self._skeleton[i+1, j+1]:
                 i += 1
                 j += 1
                 previous_up = False
