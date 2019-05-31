@@ -7,7 +7,8 @@ SIZE = 28
 
 
 def max_score_point(score, mask):
-    score_map = np.fromfunction(score, mask.shape) * mask
+    score_map = np.fromfunction(score, mask.shape)
+    score_map = (score_map - score_map.min()) * mask
     index = np.argmax(score_map)
     index = np.unravel_index(index, mask.shape)
     return index
@@ -48,7 +49,7 @@ class FourFeatures:
         points = np.argwhere(self._skeleton)
         self.bottom_pt = max(points, key=operator.itemgetter(0, 1))
 
-        self.top_right_pt = max_score_point(lambda i, j: j + SIZE - i, self._skeleton)
+        self.top_right_pt = max_score_point(lambda i, j: -1 * ((SIZE - j) ** 2 + i ** 2), self._skeleton)
 
         top_left = max_score_point(lambda i, j: SIZE - j + SIZE - i, self._skeleton)
         self.top_left_pt = self.climb_up(top_left)

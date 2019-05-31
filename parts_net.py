@@ -18,7 +18,7 @@ from parts.train import train_model
 # %%
 data_dir = 'data/'
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.Lambda(lambda img: np.pad(img, 2, 'constant')),
+    torchvision.transforms.Lambda(lambda x: np.pad(x, 2, 'constant')),
     torchvision.transforms.ToTensor(),
 ])
 train = ds.PartsDataset(data_dir, train=True, transform=transform)
@@ -53,7 +53,7 @@ data_iter = iter(loaders_dict['val'])
 
 # %%
 for i, data in enumerate(data_iter):
-    if i == 1:
+    if i == 15:
         break
     model.clear()
     model.eval()
@@ -84,8 +84,8 @@ for i, data in enumerate(data_iter):
     axes[0][0].set_title('Ground Truth')
     axes[0][1].set_title('Output')
     fig.tight_layout()
-    plt.show()
-    # fig.savefig(f'../../Desktop/res{i}.png')
+    # plt.show()
+    fig.savefig(f'../../Desktop/res{i}.png')
 
 # %%
 model.eval()

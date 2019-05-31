@@ -15,27 +15,19 @@ mnist_train = torchvision.datasets.MNIST(data_dir, train=True, download=False)
 fours = [np.array(image) for image, label in mnist_train if label == 4]
 
 # %%
-titles = ['original', 'skeleton']
 
-fig, axes = plt.subplots(4, len(titles), sharex=True, sharey=True)
-for i, ax_row in enumerate(axes, start=24):
+fig, axes = plt.subplots(2, 2, sharex=True, sharey=True)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=16):
     image = fours[i]
-    skeleton = skeletonize(image > 120)
-    skeleton_corners = corner_peaks(corner_harris(skeleton), min_distance=2, exclude_border=False, num_peaks=5)
-    interest_points = extract.FourFeatures(skeleton).points
+    fe = extract.FourFeatures(fours[i])
+    points = fe.bottom_pt, fe.top_left_pt, fe.top_right_pt, fe.middle_right_pt, fe.middle_left_pt
+    x, y = zip(*points)
 
-    ax_row[0].imshow(image, cmap='gray')
-    ax_row[0].set_ylabel(i)
-    ax_row[0].plot(interest_points[:, 1], interest_points[:, 0], '.r')
-    ax_row[0].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-
-    ax_skeleton = ax_row[1]
-    ax_skeleton.imshow(skeleton, cmap='gray')
-    ax_skeleton.plot(interest_points[:, 1], interest_points[:, 0], '.r')
-    ax_skeleton.axis('off')
-
-for col, t in zip(axes[0], titles):
-    col.set_title(t)
+    ax.imshow(image, cmap='gray')
+    ax.plot(y, x, '.r')
+    ax.set_title(i)
+    ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
 fig.tight_layout()
 plt.show()
