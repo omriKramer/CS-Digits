@@ -19,7 +19,7 @@ def segment_around_point(point, mask, length=5):
     segmentation = np.zeros_like(mask, dtype=bool)
     x = length // 2
     y = x + 1
-    segmentation[i-x:i+y, j-x:j+y] = True
+    segmentation[i - x:i + y, j - x:j + y] = True
     segmentation = segmentation & mask
     return segmentation
 
@@ -33,7 +33,7 @@ def validate_features(features):
 class FourFeatures:
 
     def __init__(self, image):
-        digit_seg = image > 120
+        digit_seg = image > 60
         self._skeleton = morphology.skeletonize(digit_seg)
         self._find_points()
         self.features = {
@@ -123,7 +123,7 @@ class FiveFeatures:
         self.top_right = max_score_point(lambda i, j: j + (SIZE - i), self._skeleton)
         self.top_left = self.climb_left(self.top_right)
         mask = np.zeros_like(image, dtype=bool)
-        mask[:self.top_left[0]+1] = True
+        mask[:self.top_left[0] + 1] = True
         top = segmentation & mask
 
         self.bottom_left = max_score_point(lambda i, j: i + (SIZE - j), self._skeleton)
@@ -143,10 +143,10 @@ class FiveFeatures:
         while True:
             if self._skeleton[i, j - 1]:
                 j -= 1
-            elif self._skeleton[i-1, j-1]:
+            elif self._skeleton[i - 1, j - 1]:
                 i -= 1
                 j -= 1
-            elif self._skeleton[i+1, j - 1]:
+            elif self._skeleton[i + 1, j - 1]:
                 i += 1
                 j -= 1
             else:
@@ -156,48 +156,86 @@ class FiveFeatures:
         i, j = start
         previous_up = False
         while True:
-            if self._skeleton[i, j+1]:
+            if self._skeleton[i, j + 1]:
                 j += 1
                 previous_up = False
-            elif i < SIZE-1 and self._skeleton[i+1, j+1]:
+            elif i < SIZE - 1 and self._skeleton[i + 1, j + 1]:
                 i += 1
                 j += 1
                 previous_up = False
-            elif self._skeleton[i-1, j+1]:
+            elif self._skeleton[i - 1, j + 1]:
                 i -= 1
                 j += 1
                 previous_up = False
-            elif self._skeleton[i-1, j] and not previous_up:
+            elif self._skeleton[i - 1, j] and not previous_up:
                 previous_up = True
                 i -= 1
             else:
                 break
 
-        if self._skeleton[i-1, j-1]:
+        if self._skeleton[i - 1, j - 1]:
             i -= 1
             j -= 1
 
         while True:
-            if self._skeleton[i-2, j]:
+            if self._skeleton[i - 2, j]:
                 i -= 2
-            elif self._skeleton[i-1, j]:
+            elif self._skeleton[i - 1, j]:
                 i -= 2
             else:
                 break
 
         previous_up = False
         while True:
-            if self._skeleton[i-1, j-1]:
+            if self._skeleton[i - 1, j - 1]:
                 i -= 1
                 j -= 1
                 previous_up = False
-            elif self._skeleton[i, j-1]:
+            elif self._skeleton[i, j - 1]:
                 j -= 1
                 previous_up = False
-            elif self._skeleton[i-1, j] and not previous_up:
+            elif self._skeleton[i - 1, j] and not previous_up:
                 previous_up = True
                 i -= 1
             elif previous_up:
-                return i+1, j
+                return i + 1, j
             else:
                 return i, j
+
+
+class OneFeatures:
+
+    def __init__(self, image):
+        digit_seg = image > 60
+        self._skeleton = morphology.skeletonize(digit_seg)
+        self._skeleton = morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2)
+        top_pt = max_score_point(lambda i, j: SIZE - i, self._skeleton)
+        self.top_pt = self.find_center(top_pt)
+        self.bottom_pt = self.climb_down()
+        self.features = {
+            'top': segment_around_point(self.top_pt, digit_seg),
+            'bottom': segment_around_point(self.bottom_pt, digit_seg)
+        }
+
+    def climb_down(self):
+        i, j = self.top_pt
+        while True:
+            if self._skeleton[i + 1, j]:
+                i += 1
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+            else:
+                return i, j
+
+    def find_center(self, start):
+        i, j = start
+        mask = np.roll(self._skeleton, -1, axis=0)
+        mask *= self._skeleton
+        index = np.argmax(mask[i])
+        if index != 0:
+            return i, index
+        return i, j

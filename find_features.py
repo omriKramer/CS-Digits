@@ -1,12 +1,11 @@
 # %%
 import matplotlib.pyplot as plt
 import numpy as np
-from skimage.feature import corner_harris, corner_peaks
 
-from skimage.morphology import skeletonize
 import torchvision
 
 from parts import extract
+
 # %%
 data_dir = 'data/'
 mnist_train = torchvision.datasets.MNIST(data_dir, train=True, download=False)
@@ -16,7 +15,7 @@ fours = [np.array(image) for image, label in mnist_train if label == 4]
 
 # %%
 
-fig, axes = plt.subplots(2, 2, sharex=True, sharey=True)
+fig, axes = plt.subplots(4, 4, sharex=True, sharey=True)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=16):
     image = fours[i]
@@ -32,10 +31,10 @@ for i, ax in enumerate(axes, start=16):
 fig.tight_layout()
 plt.show()
 
-#%%
+# %%
 eights = [np.array(image) for image, label in mnist_train if label == 8]
 
-#%%
+# %%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=32):
@@ -55,10 +54,10 @@ for i, ax in enumerate(axes, start=32):
 fig.tight_layout()
 plt.show()
 
-#%%
+# %%
 fives = [np.array(image) for image, label in mnist_train if label == 5]
 
-#%%
+# %%
 fig, axes = plt.subplots(2, 2)
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=20):
@@ -79,4 +78,26 @@ for i, ax in enumerate(axes, start=20):
 fig.tight_layout()
 plt.show()
 
-#%%
+# %%
+ones = [np.array(image) for image, label in mnist_train if label == 1]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=32):
+    image = ones[i]
+    fe = extract.OneFeatures(image)
+    points = [fe.top_pt, fe.bottom_pt]
+    if fe.end_brow:
+        points.append(fe.end_brow)
+    x, y = zip(*points)
+
+    ax.imshow(image, cmap='gray')
+    ax.plot(y, x, '.r')
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%

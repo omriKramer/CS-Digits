@@ -1,4 +1,3 @@
-
 import numpy as np
 
 import torchvision
@@ -7,12 +6,14 @@ from torch.utils.data import Dataset
 from parts import extract
 
 digit2extractor = {
-        4: extract.FourFeatures,
-        5: extract.FiveFeatures,
-        8: extract.EightFeatures,
-    }
+    1: extract.OneFeatures,
+    4: extract.FourFeatures,
+    5: extract.FiveFeatures,
+    8: extract.EightFeatures,
+}
 
 features_table = {
+    1: ('top', 'bottom'),
     4: ('top_left', 'top_right', 'middle_left', 'middle_right', 'bottom'),
     5: ('top', 'bottom'),
     8: ('top', 'bottom'),
