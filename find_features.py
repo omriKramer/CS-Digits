@@ -88,12 +88,31 @@ for i, ax in enumerate(axes, start=32):
     image = ones[i]
     fe = extract.OneFeatures(image)
     points = [fe.top_pt, fe.bottom_pt]
-    if fe.end_brow:
-        points.append(fe.end_brow)
     x, y = zip(*points)
 
     ax.imshow(image, cmap='gray')
     ax.plot(y, x, '.r')
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%
+zeros = [np.array(image) for image, label in mnist_train if label == 0]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=16):
+    image = zeros[i]
+    ax.imshow(image, cmap='gray')
+    try:
+        fe = extract.ZeroFeatures(image)
+        ax.plot(fe.center_pt[1], fe.center_pt[0], '.r')
+    except ValueError:
+        pass
+
     ax.set_axis_off()
     ax.set_title(i)
 

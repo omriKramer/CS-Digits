@@ -24,6 +24,16 @@ def segment_around_point(point, mask, length=5):
     return segmentation
 
 
+def find_center(blanks):
+    labels = morphology.label(blanks, connectivity=1)
+    props = measure.regionprops(labels, coordinates='xy')
+    if len(props) > 1:
+        props.sort(key=operator.attrgetter('area'), reverse=True)
+        return props[1].centroid
+
+    raise ValueError('Failed to find center')
+
+
 def validate_features(features):
     to_delete = [key for key, segmentation in features.items() if not segmentation.any()]
     for key in to_delete:
@@ -239,3 +249,19 @@ class OneFeatures:
         if index != 0:
             return i, index
         return i, j
+
+
+class ZeroFeatures:
+
+    def __init__(self, image):
+        thresh = 50
+        try:
+            self.blanks = np.where(image > thresh, 0, 1)
+            self.center_pt = find_center(self.blanks)
+        except ValueError:
+            self.blanks = np.where(morphology.closing(image) > thresh, 0, 1)
+            self.center_pt = find_center(self.blanks)
+
+        self.features = {
+            'center': segment_around_point(self.center_pt, self.blanks, 3)
+        }

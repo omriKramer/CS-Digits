@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from parts import extract
 
 digit2extractor = {
+    0: extract.ZeroFeatures,
     1: extract.OneFeatures,
     4: extract.FourFeatures,
     5: extract.FiveFeatures,
@@ -13,6 +14,7 @@ digit2extractor = {
 }
 
 features_table = {
+    0: ('center',),
     1: ('top', 'bottom'),
     4: ('top_left', 'top_right', 'middle_left', 'middle_right', 'bottom'),
     5: ('top', 'bottom'),
@@ -20,7 +22,7 @@ features_table = {
 }
 
 
-def create_feature2idx():
+def _create_feature2idx():
     d = {}
     idx = 0
     for digit, features in features_table.items():
@@ -30,7 +32,7 @@ def create_feature2idx():
     return d
 
 
-feature2idx = create_feature2idx()
+feature2idx = _create_feature2idx()
 
 
 class PartsDataset(Dataset):
