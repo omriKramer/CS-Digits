@@ -43,8 +43,9 @@ def validate_features(features):
 class FourFeatures:
 
     def __init__(self, image):
-        digit_seg = image > 60
+        digit_seg = image > 120
         self._skeleton = morphology.skeletonize(digit_seg)
+        self._skeleton = morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2)
         self._find_points()
         self.features = {
             'top_right': segment_around_point(self.top_right_pt, digit_seg),

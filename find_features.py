@@ -17,7 +17,7 @@ fours = [np.array(image) for image, label in mnist_train if label == 4]
 
 fig, axes = plt.subplots(4, 4, sharex=True, sharey=True)
 axes = axes.ravel()
-for i, ax in enumerate(axes, start=16):
+for i, ax in enumerate(axes, start=32):
     image = fours[i]
     fe = extract.FourFeatures(fours[i])
     points = fe.bottom_pt, fe.top_left_pt, fe.top_right_pt, fe.middle_right_pt, fe.middle_left_pt
@@ -35,9 +35,9 @@ plt.show()
 eights = [np.array(image) for image, label in mnist_train if label == 8]
 
 # %%
-fig, axes = plt.subplots(2, 2)
+fig, axes = plt.subplots(4, 4)
 axes = axes.ravel()
-for i, ax in enumerate(axes, start=32):
+for i, ax in enumerate(axes, start=0):
     image = eights[i]
     ax.imshow(image, cmap='gray')
     try:
