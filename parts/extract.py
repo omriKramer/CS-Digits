@@ -1,7 +1,7 @@
 import operator
 
 import numpy as np
-from skimage import morphology, measure
+from skimage import morphology, measure, graph
 
 SIZE = 28
 
@@ -22,6 +22,14 @@ def segment_around_point(point, mask, length=5):
     segmentation[i - x:i + y, j - x:j + y] = True
     segmentation = segmentation & mask
     return segmentation
+
+
+def segment_path(path, digit_seg):
+    mask = np.zeros_like(digit_seg)
+    for i, j in path:
+        mask[i - 1: i + 2, j - 1:j + 2] = True
+    mask *= digit_seg
+    return mask
 
 
 def find_center(blanks):
@@ -266,3 +274,128 @@ class ZeroFeatures:
         self.features = {
             'center': segment_around_point(self.center_pt, self.blanks, 3)
         }
+
+
+class TwoFeatures:
+
+    def __init__(self, image):
+        thresh = 20
+        digit_seg = image > thresh
+        self._skeleton = morphology.skeletonize(digit_seg)
+        top_left = max_score_point(lambda x, y: -1 * (x ** 2 + y ** 2), self._skeleton)
+        self._find_paths(top_left)
+        self.features = {
+            'top': segment_path(self.top_path, digit_seg),
+            'center': segment_path(self.center_path, digit_seg),
+            'bottom': segment_path(self.bottom_path, digit_seg),
+        }
+
+    def _find_paths(self, start):
+        i, j = start
+        top1 = []
+        while True:
+            top1.append((i, j))
+            if self._skeleton[i + 1, j] and j > 14:
+                break
+
+            if self._skeleton[i - 1, j + 1]:
+                i -= 1
+                j += 1
+            elif self._skeleton[i, j + 1]:
+                j += 1
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+            else:
+                break
+
+        top_shared = []
+        while True:
+            if self._skeleton[i, j + 1]:
+                j += 1
+                top_shared.append((i, j + 1))
+            elif self._skeleton[i - 1, j + 1]:
+                i -= 1
+                j += 1
+                top_shared.append((i, j))
+            else:
+                break
+
+        self.top_path = top1 + top_shared
+        if top_shared:
+            top_shared.reverse()
+            self.center_path = top_shared
+        else:
+            self.center_path = [top1[-1]]
+
+        i, j = self.center_path[-1]
+        bottom_shared = []
+        while True:
+            if (self._skeleton[i - 1, j] and j < 9) or bottom_shared:
+                bottom_shared.append((i, j))
+
+            if self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+                self.center_path.append((i, j))
+            elif self._skeleton[i + 1, j]:
+                i += 1
+                self.center_path.append((i, j))
+            elif self._skeleton[i, j - 1] and (i, j - 1) not in self.top_path:
+                j -= 1
+                self.center_path.append((i, j))
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+                self.center_path.append((i, j))
+            else:
+                break
+
+        if bottom_shared:
+            bottom_shared.reverse()
+            self.bottom_path = bottom_shared
+        else:
+            self.bottom_path = [self.center_path[-1]]
+
+        i, j = self.bottom_path[-1]
+        while True:
+            if self._skeleton[i - 1, j - 1]:
+                i -= 1
+                j -= 1
+                self.bottom_path.append((i, j))
+            elif self._skeleton[i - 1, j] and (i - 1, j) not in self.center_path:
+                i -= 1
+                self.bottom_path.append((i, j))
+            elif self._skeleton[i - 1, j + 1] and (i - 1, j + 1) not in self.center_path:
+                i -= 1
+                j += 1
+                self.bottom_path.append((i, j))
+            elif self._skeleton[i, j - 1]:
+                j -= 1
+                self.bottom_path.append((i, j))
+            else:
+                break
+
+        end = max_score_point(lambda x, y: -1 * ((20 - x) ** 2 + (SIZE - y) ** 2), self._skeleton)
+        g = np.where(self._skeleton, 1, 300)
+        route, _ = graph.route_through_array(g, (i, j), end, geometric=False)
+        self.bottom_path.extend(route[1:])
+
+        tip = []
+        i, j = start
+        while True:
+            if self._skeleton[i + 1, j] and (i + 1, j) not in self.bottom_path:
+                i += 1
+                tip.append((i, j))
+            elif self._skeleton[i + 1, j - 1] and (i + 1, j - 1) not in self.bottom_path:
+                i += 1
+                j -= 1
+                tip.append((i, j))
+            elif self._skeleton[i, j - 1] and (i, j - 1) not in self.bottom_path:
+                j -= 1
+                tip.append((i, j))
+            else:
+                break
+
+            tip.reverse()
+            self.top_path = tip + self.top_path

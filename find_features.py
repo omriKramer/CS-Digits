@@ -120,3 +120,36 @@ fig.tight_layout()
 plt.show()
 
 # %%
+twos = [np.array(image) for image, label in mnist_train if label == 2]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=16):
+    image = twos[i]
+    ax.imshow(image, cmap='gray')
+
+    fe = extract.TwoFeatures(image)
+
+    mask = np.zeros((*image.shape, 3), dtype=int)
+    mask[fe.features['top']] += 255, 0, 0
+    mask[fe.features['center']] += 0, 0, 255
+    mask[fe.features['bottom']] += 0, 255, 0
+    ax.imshow(mask, alpha=0.7)
+
+    # x, y = zip(*fe.top_path)
+    # ax.plot(y, x, '.r')
+    #
+    # x, y = zip(*fe.center_path)
+    # ax.plot(y, x, '.b')
+    #
+    # x, y = zip(*fe.bottom_path)
+    # ax.plot(y, x, '.g')
+    #
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%
