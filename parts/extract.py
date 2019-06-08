@@ -24,10 +24,11 @@ def segment_around_point(point, mask, length=5):
     return segmentation
 
 
-def segment_path(path, digit_seg):
+def segment_path(path, digit_seg, width=3):
+    dx = width // 2
     mask = np.zeros_like(digit_seg)
     for i, j in path:
-        mask[i - 1: i + 2, j - 1:j + 2] = True
+        mask[i - dx: i + dx + 1, j - dx:j + dx + 1] = True
     mask *= digit_seg
     return mask
 
@@ -53,7 +54,7 @@ class FourFeatures:
     def __init__(self, image):
         digit_seg = image > 120
         self._skeleton = morphology.skeletonize(digit_seg)
-        self._skeleton = morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2)
+        morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2, in_place=True)
         self._find_points()
         self.features = {
             'top_right': segment_around_point(self.top_right_pt, digit_seg),
@@ -227,7 +228,7 @@ class OneFeatures:
     def __init__(self, image):
         digit_seg = image > 60
         self._skeleton = morphology.skeletonize(digit_seg)
-        self._skeleton = morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2)
+        morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2, in_place=True)
         top_pt = max_score_point(lambda i, j: SIZE - i, self._skeleton)
         self.top_pt = self.find_center(top_pt)
         self.bottom_pt = self.climb_down()
@@ -279,8 +280,7 @@ class ZeroFeatures:
 class TwoFeatures:
 
     def __init__(self, image):
-        thresh = 20
-        digit_seg = image > thresh
+        digit_seg = image > 20
         self._skeleton = morphology.skeletonize(digit_seg)
         top_left = max_score_point(lambda x, y: -1 * (x ** 2 + y ** 2), self._skeleton)
         self._find_paths(top_left)
@@ -399,3 +399,73 @@ class TwoFeatures:
 
             tip.reverse()
             self.top_path = tip + self.top_path
+
+
+class ThreeFeatures:
+
+    def __init__(self, image):
+        digit_seg = image > 20
+        self._skeleton = morphology.skeletonize(digit_seg)
+        morphology.remove_small_objects(self._skeleton, 8, connectivity=2, in_place=True)
+        self.top_left = self._find_top_left()
+        self.top_right = max_score_point(lambda x, y: -1 * (x ** 2 + (SIZE - y) ** 2), self._skeleton)
+        self.bottom_left = self._find_bottom_left()
+        self.bottom_right = max_score_point(lambda x, y: -1 * ((SIZE - x) ** 2 + (SIZE - y) ** 2), self._skeleton)
+        self.center = self._find_center()
+
+        g = np.where(self._skeleton, 1, 300)
+        top1, _ = graph.route_through_array(g, self.top_left, self.top_right, geometric=False)
+        top2, _ = graph.route_through_array(g, self.top_right, self.center, geometric=False)
+        bottom1, _ = graph.route_through_array(g, self.bottom_left, self.bottom_right, geometric=False)
+        bottom2, _ = graph.route_through_array(g, self.bottom_right, self.center, geometric=False)
+        self.features = {
+            'top_half': segment_path(top1 + top2, digit_seg),
+            'bottom_half': segment_path(bottom1 + bottom2, digit_seg),
+        }
+
+    def _find_top_left(self):
+        i, j = max_score_point(lambda x, y: -1 * (x ** 2 + y ** 2), self._skeleton)
+        while True:
+            if self._skeleton[i, j - 1]:
+                i -= 1
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+            elif self._skeleton[i - 1, j - 1]:
+                i -= 1
+                j -= 1
+            elif self._skeleton[i + 1, j]:
+                i += 1
+            else:
+                return i, j
+
+    def _find_bottom_left(self):
+        i, j = max_score_point(lambda x, y: -1 * ((SIZE - x) ** 2 + y ** 2), self._skeleton)
+        while True:
+            if self._skeleton[i, j - 1]:
+                i -= 1
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+            elif self._skeleton[i - 1, j - 1]:
+                i -= 1
+                j -= 1
+            elif self._skeleton[i - 1, j]:
+                i -= 1
+            else:
+                return i, j
+
+    def _find_center(self):
+        middle = (self.top_left[0] + self.bottom_left[0]) / 2, max(self.top_left[1], self.bottom_left[1]) + 3
+        i, j = max_score_point(lambda x, y: -1 * ((middle[0] - x) ** 2 + (middle[1] - y) ** 2), self._skeleton)
+        while True:
+            if self._skeleton[i, j - 1]:
+                j -= 1
+            elif self._skeleton[i - 1, j - 1]:
+                i -= 1
+                j -= 1
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+            else:
+                return i, j

@@ -15,7 +15,7 @@ fours = [np.array(image) for image, label in mnist_train if label == 4]
 
 # %%
 
-fig, axes = plt.subplots(4, 4, sharex=True, sharey=True)
+fig, axes = plt.subplots(4, 4, sharex='all', sharey='all')
 axes = axes.ravel()
 for i, ax in enumerate(axes, start=32):
     image = fours[i]
@@ -153,3 +153,27 @@ fig.tight_layout()
 plt.show()
 
 # %%
+threes = [np.array(image) for image, label in mnist_train if label == 3]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=16):
+    image = threes[i]
+    ax.imshow(image, cmap='gray')
+
+    fe = extract.ThreeFeatures(image)
+    points = fe.top_left, fe.top_right, fe.bottom_left, fe.bottom_right, fe.center
+    x, y = zip(*points)
+    ax.plot(y, x, '.w')
+
+    mask = np.zeros((*image.shape, 3), dtype=int)
+    mask[fe.features['top_half']] += 255, 0, 0
+    mask[fe.features['bottom_half']] += 0, 0, 255
+    ax.imshow(mask, alpha=0.7)
+
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
