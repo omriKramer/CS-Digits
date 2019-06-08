@@ -177,3 +177,31 @@ for i, ax in enumerate(axes, start=16):
 
 fig.tight_layout()
 plt.show()
+
+# %%
+sixes = [np.array(image) for image, label in mnist_train if label == 6]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=0 * len(axes)):
+    image = sixes[i]
+    ax.imshow(image, cmap='gray')
+
+    try:
+        fe = extract.SixFeatures(image)
+
+        mask = np.zeros((*image.shape, 3), dtype=int)
+        mask[fe.features['center']] += 255, 0, 0
+        mask[fe.features['top']] += 0, 0, 255
+        ax.imshow(mask, alpha=0.7)
+    except ValueError:
+        pass
+
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%

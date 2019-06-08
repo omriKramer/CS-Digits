@@ -8,16 +8,22 @@ from parts import extract
 digit2extractor = {
     0: extract.ZeroFeatures,
     1: extract.OneFeatures,
+    2: extract.TwoFeatures,
+    3: extract.ThreeFeatures,
     4: extract.FourFeatures,
     5: extract.FiveFeatures,
+    6: extract.SixFeatures,
     8: extract.EightFeatures,
 }
 
 features_table = {
     0: ('center',),
     1: ('top', 'bottom'),
+    2: ('top', 'center', 'bottom'),
+    3: ('top_half', 'middle_half'),
     4: ('top_left', 'top_right', 'middle_left', 'middle_right', 'bottom'),
     5: ('top', 'bottom'),
+    6: ('top', 'center'),
     8: ('top', 'bottom'),
 }
 

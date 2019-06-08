@@ -17,10 +17,13 @@ def max_score_point(score, mask):
 def segment_around_point(point, mask, length=5):
     i, j = int(round(point[0])), int(round(point[1]))
     segmentation = np.zeros_like(mask, dtype=bool)
-    x = length // 2
-    y = x + 1
-    segmentation[i - x:i + y, j - x:j + y] = True
-    segmentation = segmentation & mask
+    dx = length // 2
+    x0 = max(0, i - dx)
+    x1 = min(SIZE, i+dx+1)
+    y0 = max(0, j - dx)
+    y1 = min(SIZE, j+dx+1)
+    segmentation[x0:x1, y0:y1] = True
+    segmentation = segmentation & mask.astype(bool)
     return segmentation
 
 
@@ -34,7 +37,7 @@ def segment_path(path, digit_seg, width=3):
 
 
 def find_center(blanks):
-    labels = morphology.label(blanks, connectivity=1)
+    labels = morphology.label(blanks, connectivity=2)
     props = measure.regionprops(labels, coordinates='xy')
     if len(props) > 1:
         props.sort(key=operator.attrgetter('area'), reverse=True)
@@ -469,3 +472,40 @@ class ThreeFeatures:
                 j -= 1
             else:
                 return i, j
+
+
+class SixFeatures:
+
+    def __init__(self, image):
+        closed = morphology.closing(image)
+        for thresh in range(0, 255, 30):
+            try:
+                self.blanks = np.where(image > thresh, 0, 1)
+                self.center_pt = find_center(self.blanks)
+            except ValueError:
+                try:
+                    self.blanks = np.where(closed > thresh, 0, 1)
+                    self.center_pt = find_center(self.blanks)
+                except ValueError:
+                    continue
+
+            break
+        else:
+            raise ValueError
+
+        self._skeleton = morphology.skeletonize(image > 20)
+        i, j = max_score_point(lambda x, y: SIZE - x, self._skeleton)
+        while True:
+            if self._skeleton[i, j + 1]:
+                j += 1
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+            else:
+                break
+
+        self.top_pt = i, j
+        self.features = {
+            'center': segment_around_point(self.center_pt, self.blanks, length=3),
+            'top': segment_around_point(self.top_pt, image > 20, length=5),
+        }
