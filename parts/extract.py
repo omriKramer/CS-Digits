@@ -19,9 +19,9 @@ def segment_around_point(point, mask, length=5):
     segmentation = np.zeros_like(mask, dtype=bool)
     dx = length // 2
     x0 = max(0, i - dx)
-    x1 = min(SIZE, i+dx+1)
+    x1 = min(SIZE, i + dx + 1)
     y0 = max(0, j - dx)
-    y1 = min(SIZE, j+dx+1)
+    y1 = min(SIZE, j + dx + 1)
     segmentation[x0:x1, y0:y1] = True
     segmentation = segmentation & mask.astype(bool)
     return segmentation
@@ -494,11 +494,15 @@ class SixFeatures:
             raise ValueError
 
         self._skeleton = morphology.skeletonize(image > 20)
+        morphology.remove_small_objects(self._skeleton, min_size=8, in_place=True)
         i, j = max_score_point(lambda x, y: SIZE - x, self._skeleton)
         while True:
+            if j+1 == SIZE:
+                break
+
             if self._skeleton[i, j + 1]:
                 j += 1
-            elif self._skeleton[i + 1, j + 1]:
+            elif i+1 < SIZE and self._skeleton[i + 1, j + 1]:
                 i += 1
                 j += 1
             else:
