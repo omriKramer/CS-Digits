@@ -53,7 +53,7 @@ data_iter = iter(loaders_dict['val'])
 
 # %%
 for i, data in enumerate(data_iter):
-    if i == 15:
+    if i == 30:
         break
     model.clear()
     model.eval()
@@ -85,7 +85,7 @@ for i, data in enumerate(data_iter):
     axes[0][1].set_title('Output')
     fig.tight_layout()
     # plt.show()
-    fig.savefig(f'../../Desktop/res{i}.png')
+    fig.savefig(f'../../Desktop/results/res{i}.png')
 
 # %%
 model.eval()

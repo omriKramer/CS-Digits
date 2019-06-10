@@ -494,7 +494,7 @@ class SixFeatures:
             raise ValueError
 
         self._skeleton = morphology.skeletonize(image > 20)
-        morphology.remove_small_objects(self._skeleton, min_size=8, in_place=True)
+        morphology.remove_small_objects(self._skeleton, min_size=4, connectivity=2, in_place=True)
         i, j = max_score_point(lambda x, y: SIZE - x, self._skeleton)
         while True:
             if j+1 == SIZE:
