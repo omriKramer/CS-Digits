@@ -20,7 +20,7 @@ features_table = {
     0: ('center',),
     1: ('top', 'bottom'),
     2: ('top', 'center', 'bottom'),
-    3: ('top_half', 'middle_half'),
+    3: ('top_half', 'bottom_half'),
     4: ('top_left', 'top_right', 'middle_left', 'middle_right', 'bottom'),
     5: ('top', 'bottom'),
     6: ('top', 'center'),
