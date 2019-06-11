@@ -27,6 +27,7 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
 
             running_loss = 0.0
             running_iou = 0.0
+            running_corrects = 0
 
             # Iterate over data.
             for data in dataloaders[phase]:
@@ -59,6 +60,10 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
 
                 # statistics
                 running_loss += loss.item() * len(image)
+
+                _, preds = torch.max(pred_output, 1)
+                running_corrects += torch.sum(preds == labels.data)
+
                 pred_segmentation = pred_segmentation > 0.5
                 segmentation = segmentation.to(torch.uint8)
                 union = (pred_segmentation | segmentation).float().sum((1, 2, 3))
@@ -67,16 +72,17 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
                 running_iou += iou.sum()
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
+            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
             epoch_iou = running_iou / len(dataloaders[phase].dataset)
 
-            print(f'{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}')
+            print(f'{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}, Class acc: {epoch_acc}')
 
             # deep copy the model
             if phase == 'val' and epoch_iou > best_iou:
                 best_iou = epoch_iou
                 best_model_wts = copy.deepcopy(model.state_dict())
             if phase == 'val':
-                val_acc_history.append(epoch_iou)
+                val_acc_history.append((epoch_iou, epoch_acc))
 
         print()
 
