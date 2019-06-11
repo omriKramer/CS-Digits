@@ -75,7 +75,7 @@ def train_model(model, dataloaders, optimizer, bu_criterion, td_criterion, devic
             epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
             epoch_iou = running_iou / len(dataloaders[phase].dataset)
 
-            print(f'{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}, Class acc: {epoch_acc}')
+            print(f'{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}, Class Acc: {epoch_acc:.4f}')
 
             # deep copy the model
             if phase == 'val' and epoch_iou > best_iou:
