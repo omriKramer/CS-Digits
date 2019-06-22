@@ -497,12 +497,12 @@ class SixFeatures:
         morphology.remove_small_objects(self._skeleton, min_size=4, connectivity=2, in_place=True)
         i, j = max_score_point(lambda x, y: SIZE - x, self._skeleton)
         while True:
-            if j+1 == SIZE:
+            if j + 1 == SIZE:
                 break
 
             if self._skeleton[i, j + 1]:
                 j += 1
-            elif i+1 < SIZE and self._skeleton[i + 1, j + 1]:
+            elif i + 1 < SIZE and self._skeleton[i + 1, j + 1]:
                 i += 1
                 j += 1
             else:
@@ -512,4 +512,23 @@ class SixFeatures:
         self.features = {
             'center': segment_around_point(self.center_pt, self.blanks, length=3),
             'top': segment_around_point(self.top_pt, image > 20, length=5),
+        }
+
+
+class SevenFeatures:
+
+    def __init__(self, image):
+        digit_seg = image > 20
+        self._skeleton = morphology.skeletonize(digit_seg)
+        morphology.remove_small_objects(self._skeleton, min_size=8, connectivity=2, in_place=True)
+
+        self.top_left = max_score_point(lambda i, j: -1 * (i ** 2 + j ** 2), self._skeleton)
+        self.top_right = max_score_point(lambda i, j: -1 * (i ** 2 + (SIZE - 3 - j) ** 2), self._skeleton)
+        self.bottom = max_score_point(lambda i, j: i, self._skeleton)
+        g = np.where(self._skeleton, 1, 300)
+        top, _ = graph.route_through_array(g, self.top_left, self.top_right, geometric=False)
+        leg, _ = graph.route_through_array(g, self.top_right, self.bottom, geometric=False)
+        self.features = {
+            'top': segment_path(top, digit_seg, width=5),
+            'leg': segment_path(leg, digit_seg, width=5),
         }

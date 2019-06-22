@@ -205,3 +205,30 @@ fig.tight_layout()
 plt.show()
 
 # %%
+sevens = [np.array(image) for image, label in mnist_train if label == 7]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=0 * len(axes)):
+    image = sevens[i]
+    ax.imshow(image, cmap='gray')
+
+    fe = extract.SevenFeatures(image)
+    points = fe.top_right, fe.top_left, fe.bottom
+    y, x = zip(*points)
+
+    ax.plot(x, y, '.w')
+
+    mask = np.zeros((*image.shape, 3), dtype=int)
+    mask[fe.features['top']] += 255, 0, 0
+    mask[fe.features['leg']] += 0, 0, 255
+    ax.imshow(mask, alpha=0.7)
+
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%
