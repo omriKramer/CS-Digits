@@ -15,6 +15,7 @@ digit2extractor = {
     6: extract.SixFeatures,
     7: extract.SevenFeatures,
     8: extract.EightFeatures,
+    9: extract.NineFeatures
 }
 
 features_table = {
@@ -27,6 +28,7 @@ features_table = {
     6: ('top', 'center'),
     7: ('top', 'leg'),
     8: ('top', 'bottom'),
+    9: ('circle', 'leg')
 }
 
 

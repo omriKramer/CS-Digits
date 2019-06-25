@@ -1,6 +1,7 @@
 import operator
 
 import numpy as np
+from scipy import ndimage
 from skimage import morphology, measure, graph
 
 SIZE = 28
@@ -532,3 +533,101 @@ class SevenFeatures:
             'top': segment_path(top, digit_seg, width=5),
             'leg': segment_path(leg, digit_seg, width=5),
         }
+
+
+class NineFeatures:
+    _kernel = np.array([[1, 1, 1],
+                        [1, 0, 1],
+                        [0, 0, 0]])
+
+    def __init__(self, image):
+        digit_seg = morphology.remove_small_objects(image > 120, min_size=8, connectivity=2)
+        self._skeleton = morphology.skeletonize(digit_seg)
+        self.circle_path = self._find_circle()
+        circle = segment_path(self.circle_path, digit_seg)
+        non_circle = np.logical_not(circle) & digit_seg
+        self.features = {
+            'circle': circle,
+            'leg': non_circle,
+        }
+
+    def _find_circle(self):
+        i, j = max_score_point(lambda x, y: -1 * (x ** 2 + (SIZE / 2 - y) ** 2), self._skeleton)
+        circle = [(i, j)]
+        while True:
+            if self._skeleton[i, j - 1]:
+                j -= 1
+                circle.append((i, j))
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+                circle.append((i, j))
+            else:
+                break
+
+        while not self._skeleton[i, j + 1]:
+            if self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+                circle.append((i, j))
+            elif self._skeleton[i + 1, j]:
+                i += 1
+                circle.append((i, j))
+            elif self._skeleton[i + 1, j - 1]:
+                i += 1
+                j -= 1
+                circle.append((i, j))
+            else:
+                break
+
+        while True:
+            if self._skeleton[i - 1, j + 1]:
+                i -= 1
+                j += 1
+                circle.append((i, j))
+            elif self._skeleton[i, j + 1]:
+                j += 1
+                circle.append((i, j))
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+                circle.append((i, j))
+            else:
+                break
+
+        while True:
+            if self._skeleton[i - 1, j - 1]:
+                i -= 1
+                j -= 1
+                circle.append((i, j))
+            elif self._skeleton[i - 1, j]:
+                i -= 1
+                circle.append((i, j))
+            elif self._skeleton[i - 1, j + 1]:
+                i -= 1
+                j += 1
+                circle.append((i, j))
+            else:
+                break
+
+        while self._skeleton[i, j - 1]:
+            j -= 1
+            circle.append((i, j))
+
+        i, j = circle[0]
+        while True:
+            if self._skeleton[i, j + 1]:
+                j += 1
+                circle.append((i, j))
+            elif self._skeleton[i + 1, j + 1]:
+                i += 1
+                j += 1
+                circle.append((i, j))
+            elif self._skeleton[i - 1, j + 1]:
+                i -= 1
+                j += 1
+                circle.append((i, j))
+            else:
+                break
+
+        return set(circle)

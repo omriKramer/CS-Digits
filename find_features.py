@@ -232,3 +232,25 @@ fig.tight_layout()
 plt.show()
 
 # %%
+nines = [np.array(image) for image, label in mnist_train if label == 9]
+
+# %%
+fig, axes = plt.subplots(4, 4)
+axes = axes.ravel()
+for i, ax in enumerate(axes, start=0 * len(axes)):
+    image = nines[i]
+    ax.imshow(image, cmap='gray')
+
+    fe = extract.NineFeatures(image)
+    mask = np.zeros((*image.shape, 3), dtype=int)
+    mask[fe.features['circle']] += 255, 0, 0
+    mask[fe.features['leg']] += 0, 0, 255
+    ax.imshow(mask, alpha=0.7)
+
+    ax.set_axis_off()
+    ax.set_title(i)
+
+fig.tight_layout()
+plt.show()
+
+# %%
