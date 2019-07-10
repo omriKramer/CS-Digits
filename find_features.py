@@ -184,7 +184,7 @@ sixes = [np.array(image) for image, label in mnist_train if label == 6]
 # %%
 fig, axes = plt.subplots(4, 4)
 axes = axes.ravel()
-for i, ax in enumerate(axes, start=1 * len(axes)):
+for i, ax in enumerate(axes, start=0 * len(axes)):
     image = sixes[i]
     ax.imshow(image, cmap='gray')
 

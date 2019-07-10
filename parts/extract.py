@@ -479,7 +479,7 @@ class SixFeatures:
 
     def __init__(self, image):
         closed = morphology.closing(image)
-        for thresh in range(0, 255, 30):
+        for thresh in range(240, 0, -30):
             try:
                 self.blanks = np.where(image > thresh, 0, 1)
                 self.center_pt = find_center(self.blanks)
