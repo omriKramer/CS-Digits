@@ -1,18 +1,14 @@
 # %%
-import itertools
-
-import numpy as np
 import matplotlib.pyplot as plt
-
-import pandas as pd
-
+import numpy as np
 import torch
-from torch import nn
 import torch.optim as optim
 import torchvision
+from torch import nn
 
-from parts.counter_stream import CounterStreamNet
 import parts.dataset as ds
+import utils
+from parts.counter_stream import CounterStreamNet
 from parts.train import train_model
 
 # %%
@@ -60,61 +56,21 @@ for i, data in enumerate(data_iter):
     with torch.no_grad():
         bu1_output = model(data['image'], 'BU').sigmoid()
         _, preds = bu1_output.max(1)
-        seg_out = model(data['instruction_idx'], 'TD')
 
-    fig, axes = plt.subplots(len(seg_out), 2)
-    for ax, img, gt, seg, instruction, pred in zip(axes, data['image'], data['segmentation'], seg_out,
+        td_out = model(data['instruction_idx'], 'TD')
+        model_seg = td_out >= 0.6
+
+    fig, axes = plt.subplots(len(model_seg), 2)
+    for ax, img, gt, seg, instruction, pred in zip(axes, data['image'], data['segmentation'], model_seg,
                                                    data['instruction'], preds):
-        img = img.numpy().transpose(1, 2, 0).squeeze()
-        gt = gt.numpy().transpose(1, 2, 0).squeeze()
-        seg = seg.numpy().transpose(1, 2, 0).squeeze()
-        seg = np.where(seg < 0.6, 0, 1)
 
-        ax[0].imshow(img, cmap='gray')
-        ax[0].imshow(gt, alpha=0.7, cmap='gray')
-        ax[0].set_ylabel(instruction)
-
-        ax[0].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-
-        ax[1].imshow(img, cmap='gray')
-        ax[1].imshow(seg, alpha=0.7, cmap='gray')
-        ax[1].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-        ax[1].set_ylabel(pred.item())
+        utils.plot_segmentation(ax[0], img, gt, ylabel=instruction)
+        utils.plot_segmentation(ax[1], img, seg, ylabel=pred.item())
 
     axes[0][0].set_title('Ground Truth')
     axes[0][1].set_title('Output')
     fig.tight_layout()
     # plt.show()
-    fig.savefig(f'../../Desktop/results/res{i}.png')
+    fig.savefig(f'../../Desktop/results_110619/res{30+i}.png')
 
 # %%
-model.eval()
-results = []
-for data in loaders_dict['val']:
-    with torch.no_grad():
-        model.clear()
-        model(data['image'], 'BU')
-        seg_out = model(data['instruction_idx'], 'TD').squeeze()
-        seg_out = seg_out > 0.5
-        gt = data['segmentation'].to(torch.uint8).squeeze()
-        results.append((seg_out, gt, data['instruction']))
-
-# %%
-model.eval()
-iou = []
-for seg_out, gt, _ in results:
-    union = seg_out | gt
-    intersection = seg_out & gt
-    current_iou = intersection.sum((1, 2), dtype=torch.float) / union.sum((1, 2), dtype=torch.float)
-    iou.append(current_iou)
-
-iou = torch.cat(iou)
-print(iou.mean())
-
-# %%
-_, _, inst = zip(*results)
-inst = list(itertools.chain.from_iterable(inst))
-
-# %%
-s = pd.DataFrame({'iou': iou, 'instruction': inst})
-print(s.groupby('instruction').mean())
