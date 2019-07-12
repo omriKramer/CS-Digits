@@ -546,9 +546,10 @@ class NineFeatures:
         self.circle_path = self._find_circle()
         circle = segment_path(self.circle_path, digit_seg)
         non_circle = np.logical_not(circle) & digit_seg
+        leg = morphology.remove_small_objects(non_circle, min_size=8, connectivity=2)
         self.features = {
             'circle': circle,
-            'leg': non_circle,
+            'leg': leg,
         }
 
     def _find_circle(self):
